@@ -30,6 +30,7 @@ class AuthHandler:
         self.graph_user_endpoint = settings.AZURE_AUTH.get(
             "GRAPH_USER_ENDPOINT", "https://graph.microsoft.com/v1.0/me"
         )
+        self.allowed_issuers = settings.AZURE_AUTH.get("ALLOWED_ISSUERS", [])
         self.auth_flow_session_key = "auth_flow"
         self._cache = msal.SerializableTokenCache()
         self._msal_app = None
@@ -97,6 +98,15 @@ class AuthHandler:
         :param token: MSAL auth token dictionary
         :return: Django user instance
         """
+        if "id_token_claims" not in token:
+            raise TokenError("No ID token claims found!", "No ID token claims found!")
+        if "iss" not in token["id_token_claims"]:
+            raise TokenError("No issuer in token found!", "No issuer in token found!")
+
+        issuer = token["id_token_claims"]["iss"].replace("https://login.microsoftonline.com/", "").replace("/v2.0", "")
+        if issuer not in self.allowed_issuers:
+            raise TokenError("Forbidden issuer!", "Forbidden issuer!")
+
         azure_user = self._get_azure_user(token["access_token"])
 
         # Get extra fields
