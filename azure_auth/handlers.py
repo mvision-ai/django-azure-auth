@@ -1,3 +1,4 @@
+import logging
 import datetime
 import importlib
 from http import HTTPStatus
@@ -14,6 +15,8 @@ from django.http import HttpRequest
 from azure_auth.exceptions import DjangoAzureAuthException, TokenError
 
 UserModel = cast(AbstractBaseUser, get_user_model())
+
+logger = logging.getLogger("django-azure-auth")
 
 
 class AuthHandler:
@@ -98,6 +101,7 @@ class AuthHandler:
         :param token: MSAL auth token dictionary
         :return: Django user instance
         """
+        logger.info("Authenticating user with token: %s", token)
         if "id_token_claims" not in token:
             raise TokenError("No ID token claims found!", "No ID token claims found!")
         if "iss" not in token["id_token_claims"]:
@@ -105,7 +109,7 @@ class AuthHandler:
 
         issuer = token["id_token_claims"]["iss"].replace("https://login.microsoftonline.com/", "").replace("/v2.0", "")
         if issuer not in self.allowed_issuers:
-            raise TokenError("Forbidden issuer!", "Forbidden issuer!")
+            raise TokenError("Forbidden issuer!", f"Forbidden issuer! Allowed issuers are {self.allowed_issuers}, got {issuer} instead!")
 
         azure_user = self._get_azure_user(token["access_token"])
 
