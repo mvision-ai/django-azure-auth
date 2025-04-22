@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import unquote
 
 from django.conf import settings
@@ -8,6 +9,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from azure_auth.utils import EntraStateSerializer
 
 from .handlers import AuthHandler
+
+logger = logging.getLogger(__name__)
 
 serializer = EntraStateSerializer()
 
@@ -30,7 +33,12 @@ def azure_auth_logout(request: HttpRequest):
 
 def azure_auth_callback(request: HttpRequest):
     token = AuthHandler(request).get_token_from_flow()
-    user = authenticate(request, token=token)
+    try:
+        user = authenticate(request, token=token)
+    except Exception as e:
+        logger.exception(f"Authentication error: {e}")
+        return HttpResponseForbidden(f"Authentication error: {e}")
+
     if user:
         login(request, user)
 

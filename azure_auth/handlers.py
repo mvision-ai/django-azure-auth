@@ -101,15 +101,21 @@ class AuthHandler:
         :param token: MSAL auth token dictionary
         :return: Django user instance
         """
-        logger.info("Authenticating user with token: %s", token)
         if "id_token_claims" not in token:
-            raise TokenError("No ID token claims found!", "No ID token claims found!")
+            logger.error(f"Authenticating user with token: {token}")
+            msg = "No ID token claims found!"
+            raise TokenError(msg, msg)
         if "iss" not in token["id_token_claims"]:
-            raise TokenError("No issuer in token found!", "No issuer in token found!")
+            logger.error(f"Authenticating user with token: {token}")
+            msg = "No issuer in token found!"
+            raise TokenError(msg, msg)
 
         issuer = token["id_token_claims"]["iss"].replace("https://login.microsoftonline.com/", "").replace("/v2.0", "")
         if issuer not in self.allowed_issuers:
-            raise TokenError("Forbidden issuer!", f"Forbidden issuer! Allowed issuers are {self.allowed_issuers}, got {issuer} instead!")
+            logger.error(f"Authenticating user with token: {token}")
+            logger.error(f"Forbidden issuer ({issuer})! Allowed issuers: {self.allowed_issuers}")
+            msg = f"Forbidden issuer ({issuer})!"
+            raise TokenError(msg, msg)
 
         azure_user = self._get_azure_user(token["access_token"])
 
@@ -184,6 +190,9 @@ class AuthHandler:
     @property
     def user_is_authenticated(self) -> bool:
         now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
+        if not hasattr(self.request.user, "email") or self.request.user.email is None or len(self.request.user.email) == 0:  # set the email for users from other tenants
+            self.request.user.email = self.claims.get("preferred_username", "")
 
         # Check the ID token is still valid in the first instance
         if now < self.claims.get("exp", 0) and self.request.user.is_authenticated:
