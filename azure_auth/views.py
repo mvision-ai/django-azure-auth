@@ -32,8 +32,8 @@ def azure_auth_logout(request: HttpRequest):
 
 
 def azure_auth_callback(request: HttpRequest):
-    token = AuthHandler(request).get_token_from_flow()
     try:
+        token = AuthHandler(request).get_token_from_flow()
         user = authenticate(request, token=token)
     except Exception as e:
         logger.exception(f"Authentication error: {e}")
